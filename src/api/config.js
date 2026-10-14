@@ -20,3 +20,18 @@ export function admin () {
     method: 'get',
   })
 }
+
+export function clientBuilder () {
+  return request({
+    url: '/config/client_builder',
+    method: 'get',
+  })
+}
+
+export function clientBuilderSave (data) {
+  return request({
+    url: '/config/client_builder',
+    method: 'post',
+    data,
+  })
+}

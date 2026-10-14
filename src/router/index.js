@@ -197,6 +197,12 @@ export const asyncRoutes = [
         component: () => import('@/views/share_record/index.vue'),
       },
       {
+        path: '/clientBuild',
+        name: 'ClientBuild',
+        meta: { title: 'ClientBuild', icon: 'Tools' /*keepAlive: true*/ },
+        component: () => import('@/views/client_build/index.vue'),
+      },
+      {
         path: '/serverCmd',
         name: 'ServerCmd',
         meta: { title: 'ServerCmd', icon: 'Tools' /*keepAlive: true*/ },
