@@ -59,6 +59,11 @@
 
     <el-dialog v-model="showCreate" :title="T('Create')" width="520px">
       <el-form :model="createForm" label-width="100px">
+        <el-form-item label="Builder">
+          <el-select v-model="createForm.builder" style="width: 100%">
+            <el-option v-for="b in builderOptions" :key="b.value" :label="b.label" :value="b.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="Target">
           <el-select v-model="createForm.target" placeholder="Select target" style="width: 100%">
             <el-option v-for="t in targetOptions" :key="t.value" :label="t.label" :value="t.value" />
@@ -85,6 +90,12 @@
         <el-form-item label="API Token">
           <el-input v-model="settingsForm.api_token" />
         </el-form-item>
+        <el-form-item label="rdgen API Base">
+          <el-input v-model="settingsForm.rdgen_api_base" />
+        </el-form-item>
+        <el-form-item label="rdgen API Token">
+          <el-input v-model="settingsForm.rdgen_api_token" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showSettings=false">{{ T('Cancel') }}</el-button>
@@ -95,7 +106,7 @@
 </template>
 
 <script setup>
-  import { onActivated, onMounted, ref, reactive, watch } from 'vue'
+  import { onActivated, onMounted, onBeforeUnmount, onDeactivated, ref, reactive, watch } from 'vue'
   import { T } from '@/utils/i18n'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { list, create, refreshStatus, remove, batchDelete, downloadFile } from '@/api/client_build'
@@ -106,7 +117,11 @@
   const multipleSelection = ref([])
   const showCreate = ref(false)
   const creating = ref(false)
-  const createForm = reactive({ target: 'windows-x86_64-exe', name: '' })
+  const createForm = reactive({ builder: 'dvforge', target: 'windows-x86_64-exe', name: '' })
+  const builderOptions = [
+    { value: 'dvforge', label: 'DVForge' },
+    { value: 'rdgen', label: 'rdgen' },
+  ]
   const targetOptions = [
     { value: 'android-arm64', label: 'Android arm64' },
     { value: 'android-armeabi', label: 'Android armeabi' },
@@ -191,6 +206,7 @@
       return
     }
     const fd = new FormData()
+    fd.append('builder', createForm.builder || 'dvforge')
     fd.append('target', createForm.target)
     fd.append('name', createForm.name || selectedFile.name)
     fd.append('file', selectedFile)
@@ -221,7 +237,7 @@
 
   const showSettings = ref(false)
   const savingSettings = ref(false)
-  const settingsForm = reactive({ api_base: '', api_token: '' })
+  const settingsForm = reactive({ api_base: '', api_token: '', rdgen_api_base: '', rdgen_api_token: '' })
 
   const openSettings = async () => {
     showSettings.value = true
@@ -229,6 +245,8 @@
     if (res) {
       settingsForm.api_base = res.data.api_base || ''
       settingsForm.api_token = res.data.api_token || ''
+      settingsForm.rdgen_api_base = res.data.rdgen_api_base || ''
+      settingsForm.rdgen_api_token = res.data.rdgen_api_token || ''
     }
   }
 
@@ -242,8 +260,19 @@
     }
   }
 
-  onMounted(getList)
-  onActivated(getList)
+  let refreshTimer = null
+  const startAutoRefresh = () => {
+    if (refreshTimer) return
+    refreshTimer = setInterval(() => { getList() }, 15000)
+  }
+  const stopAutoRefresh = () => {
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null }
+  }
+
+  onMounted(() => { getList(); startAutoRefresh() })
+  onActivated(() => { getList(); startAutoRefresh() })
+  onDeactivated(() => { stopAutoRefresh() })
+  onBeforeUnmount(() => { stopAutoRefresh() })
   watch(() => listQuery.page, getList)
   watch(() => listQuery.page_size, () => { if (listQuery.page === 1) getList(); else listQuery.page = 1 })
 </script>
