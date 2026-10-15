@@ -69,6 +69,9 @@
             <el-option v-for="t in targetOptions" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="Version">
+          <el-input v-model="createForm.version" placeholder="1.5.0"/>
+        </el-form-item>
         <el-form-item label="Name">
           <el-input v-model="createForm.name"/>
         </el-form-item>
@@ -117,7 +120,7 @@
   const multipleSelection = ref([])
   const showCreate = ref(false)
   const creating = ref(false)
-  const createForm = reactive({ builder: 'dvforge', target: 'windows-x86_64-exe', name: '' })
+  const createForm = reactive({ builder: 'dvforge', target: 'windows-x86_64-exe', version: '1.5.0', name: '' })
   const builderOptions = [
     { value: 'dvforge', label: 'DVForge' },
     { value: 'rdgen', label: 'rdgen' },
@@ -208,6 +211,7 @@
     const fd = new FormData()
     fd.append('builder', createForm.builder || 'dvforge')
     fd.append('target', createForm.target)
+    fd.append('version', createForm.version || '')
     fd.append('name', createForm.name || selectedFile.name)
     fd.append('file', selectedFile)
     creating.value = true
