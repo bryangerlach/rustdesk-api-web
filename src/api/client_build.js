@@ -7,6 +7,14 @@ export function list (params) {
   })
 }
 
+export function targetOptions (params) {
+  return request({
+    url: '/client_build/target_options',
+    method: 'get',
+    params,
+  })
+}
+
 export function create (data) {
   return request({
     url: '/client_build/create',

@@ -66,8 +66,9 @@
             <el-option v-for="b in builderOptions" :key="b.value" :label="b.label" :value="b.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Target">
-          <el-select v-model="createForm.target" placeholder="Select target" style="width: 100%">
+        <el-form-item label="Targets">
+          <el-tag v-for="t in createForm.targets" :key="t.value" :closable="true" @close="handleTargetClose(t)" style="margin-right: 10px">{{ t.label }}</el-tag>
+          <el-select v-model="tempTarget" placeholder="Select targets" style="width: 100%" :clearable="false" @change="handleTargetSelect">
             <el-option v-for="t in targetOptions" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
@@ -114,7 +115,7 @@
   import { onActivated, onMounted, onBeforeUnmount, onDeactivated, ref, reactive, watch } from 'vue'
   import { T } from '@/utils/i18n'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { list, create, refreshStatus, remove, batchDelete, downloadFile } from '@/api/client_build'
+  import { list, create, refreshStatus, remove, batchDelete, downloadFile, targetOptions as fetchTargetOptions } from '@/api/client_build'
   import { clientBuilder, clientBuilderSave } from '@/api/config'
 
   const listRes = reactive({ list: [], total: 0, loading: false })
@@ -122,23 +123,13 @@
   const multipleSelection = ref([])
   const showCreate = ref(false)
   const creating = ref(false)
-  const createForm = reactive({ builder: 'dvforge', target: 'windows-x86_64-exe', version: '1.5.0', name: '' })
+  const createForm = reactive({ builder: 'dvforge', targets: [], version: '1.5.0', name: '' })
+  const tempTarget = ref('')
   const builderOptions = [
     { value: 'dvforge', label: 'DVForge' },
     { value: 'rdgen', label: 'rdgen' },
   ]
-  const targetOptions = [
-    { value: 'android-arm64', label: 'Android arm64' },
-    { value: 'android-armeabi', label: 'Android armeabi' },
-    { value: 'android-x86_64', label: 'Android x86_64' },
-    { value: 'android-universal', label: 'Android universal' },
-    { value: 'linux-x86_64-deb', label: 'Linux .deb' },
-    { value: 'linux-x86_64-rpm', label: 'Linux .rpm' },
-    { value: 'windows-x86_64-exe', label: 'Windows .exe' },
-    { value: 'windows-x86_64-msi', label: 'Windows .msi' },
-    { value: 'macos-arm64-dmg', label: 'macOS .dmg' },
-    { value: 'macos-x86_64-dmg', label: 'macOS x86 .dmg' },
-  ]
+  const targetOptions = ref([])
   let selectedFile = null
 
   const getList = async () => {
@@ -201,18 +192,43 @@
     selectedFile = e.target.files && e.target.files[0]
   }
 
+  const fetchTargets = async () => {
+    const res = await fetchTargetOptions({ builder: createForm.builder }).catch(() => false)
+    if (res) {
+      targetOptions.value = (res.data.targets || []).map(t => ({ value: t, label: t }))
+    } else {
+      targetOptions.value = []
+    }
+    tempTarget.value = ''
+    createForm.targets = []
+  }
+
+  const handleTargetClose = (tag) => {
+    createForm.targets = createForm.targets.filter(t => t.value !== tag.value)
+  }
+
+  const handleTargetSelect = (value) => {
+    if (!value) return
+    const exists = createForm.targets.find(t => t.value === value)
+    if (!exists) {
+      const label = targetOptions.value.find(t => t.value === value)?.label || value
+      createForm.targets.push({ value, label })
+    }
+    tempTarget.value = ''
+  }
+
   const submitCreate = async () => {
     if (!selectedFile) {
       ElMessage.warning('Please select a json file')
       return
     }
-    if (!createForm.target) {
-      ElMessage.warning('Target required')
+    if (!createForm.targets || createForm.targets.length === 0) {
+      ElMessage.warning('Please select at least one target')
       return
     }
     const fd = new FormData()
+    createForm.targets.forEach(t => fd.append('targets[]', t.value))
     fd.append('builder', createForm.builder || 'dvforge')
-    fd.append('target', createForm.target)
     fd.append('version', createForm.version || '')
     fd.append('name', createForm.name || selectedFile.name)
     fd.append('file', selectedFile)
@@ -281,4 +297,6 @@
   onBeforeUnmount(() => { stopAutoRefresh() })
   watch(() => listQuery.page, getList)
   watch(() => listQuery.page_size, () => { if (listQuery.page === 1) getList(); else listQuery.page = 1 })
+  watch(() => createForm.builder, fetchTargets)
+  watch(showCreate, (val) => { if (val) fetchTargets() })
 </script>
