@@ -227,7 +227,7 @@
       return
     }
     const fd = new FormData()
-    createForm.targets.forEach(t => fd.append('targets[]', t.value))
+    createForm.targets.forEach(t => fd.append('targets', t.value))
     fd.append('builder', createForm.builder || 'dvforge')
     fd.append('version', createForm.version || '')
     fd.append('name', createForm.name || selectedFile.name)
