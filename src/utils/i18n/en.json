@@ -531,5 +531,8 @@
   },
   "Remark": {
     "One": "Remark"
+  },
+  "UpdateMetadata": {
+    "One": "Update Metadata"
   }
 }

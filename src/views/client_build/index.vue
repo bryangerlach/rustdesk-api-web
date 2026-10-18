@@ -23,7 +23,9 @@
         <el-table-column prop="id" label="ID" align="center" width="80"/>
         <el-table-column prop="name" label="Name" align="center"/>
         <el-table-column prop="target" label="Target" align="center"/>
+        <el-table-column prop="version" label="Version" align="center"/>
         <el-table-column prop="job_id" label="Job ID" align="center"/>
+        <el-table-column prop="builder" label="Builder" align="center"/>
         <el-table-column prop="status" label="Status" align="center">
           <template #default="{row}">
             <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
