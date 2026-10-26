@@ -30,6 +30,7 @@
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
           <el-button type="danger" @click="toAdd">{{ T('Add') }}</el-button>
+          <el-button type="success" @click="showImportDialog = true">{{ T('Import') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -168,6 +169,57 @@
         </el-form-item>
       </el-form>
     </el-dialog>
+    <!-- Import Dialog -->
+    <el-dialog v-model="showImportDialog" width="650" :title="T('Import')">
+      <el-form :model="importForm" label-width="120px">
+        <el-form-item :label="T('ImportFormat')">
+          <el-select v-model="importForm.format" @change="onImportFormatChange">
+            <el-option value="standard" :label="T('StandardFormat')"></el-option>
+            <el-option value="kingmo" :label="T('KingmoFormat')"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="T('ImportFile')">
+          <input type="file" accept=".json" @change="onImportFileChange" style="width: 100%"/>
+        </el-form-item>
+        <el-form-item :label="T('OrPasteJSON')">
+          <el-input v-model="importForm.jsonData" type="textarea" :rows="6" :placeholder="importFormatPlaceholder"/>
+        </el-form-item>
+        <el-form-item v-if="isAdmin" :label="T('ImportToUser')">
+          <el-select v-model="importForm.target_user_id" placeholder="Select user">
+            <el-option
+                v-for="item in allUsers"
+                :key="item.id"
+                :label="item.username"
+                :value="item.id"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+        <template #footer>
+          <el-button @click="showImportDialog = false">{{ T('Cancel') }}</el-button>
+          <el-button type="primary" @click="submitImport" :loading="importing">{{ T('Confirm') }}</el-button>
+        </template>
+      </el-form>
+    </el-dialog>
+    <!-- Import Result -->
+    <el-dialog v-model="showImportResult" width="500" :title="T('ImportResult')">
+      <el-divider>{{ T('ImportSummary') }}</el-divider>
+      <el-descriptions :column="1" border>
+        <el-descriptions-item :label="T('Total')">{{ importResult.total }}</el-descriptions-item>
+        <el-descriptions-item :label="T('Imported')">{{ importResult.imported }}</el-descriptions-item>
+        <el-descriptions-item :label="T('Skipped')">{{ importResult.skipped }}</el-descriptions-item>
+        <el-descriptions-item :label="T('TargetUser')">{{ importResult.user_id }}</el-descriptions-item>
+        <el-descriptions-item :label="T('Format')">{{ importResult.format }}</el-descriptions-item>
+      </el-descriptions>
+      <el-divider v-if="importResult.errors && importResult.errors.length">{{ T('Errors') }}</el-divider>
+      <el-collapse v-if="importResult.errors && importResult.errors.length">
+        <el-collapse-item v-for="(err, idx) in importResult.errors" :key="idx" :title="`Error ${idx + 1}`">
+          {{ err }}
+        </el-collapse-item>
+      </el-collapse>
+      <template #footer>
+        <el-button @click="showImportResult = false">{{ T('Close') }}</el-button>
+      </template>
+    </el-dialog>
     <!--    <el-dialog v-model="shareToWebClientVisible" width="900" :close-on-click-modal="false">
           <shareByWebClient :id="shareToWebClientForm.id"
                             :hash="shareToWebClientForm.hash"
@@ -178,7 +230,7 @@
 </template>
 
 <script setup>
-  import { onActivated, onMounted, watch } from 'vue'
+  import { onActivated, onMounted, watch, ref, reactive } from 'vue'
   import { useRepositories } from '@/views/address_book/index'
   import { toWebClientLink } from '@/utils/webclient'
   import { T } from '@/utils/i18n'
@@ -189,6 +241,7 @@
   import { CopyDocument } from '@element-plus/icons'
   import PlatformIcons from '@/components/icons/platform.vue'
   import { loadAllUsers } from '@/global'
+  import { importAddressBook, importKingmo } from '@/api/address_book'
 
   const appStore = useAppStore()
   const route = useRoute()
@@ -222,6 +275,81 @@
   onMounted(getAllUsers)
   onMounted(getList)
   onActivated(getList)
+
+  // Import state
+  const showImportDialog = ref(false)
+  const showImportResult = ref(false)
+  const importing = ref(false)
+  const importForm = reactive({
+    format: 'standard',
+    jsonData: '',
+    target_user_id: null,
+  })
+  const importResult = reactive({
+    total: 0,
+    imported: 0,
+    skipped: 0,
+    user_id: 0,
+    errors: [],
+  })
+  const isAdmin = ref(appStore.setting?.isAdmin || false)
+  const importFormatPlaceholder = ref('Paste JSON array here')
+
+  const onImportFormatChange = (val) => {
+    if (val === 'kingmo') {
+      importFormatPlaceholder.value = 'Paste Kingmo JSON (with users array) here'
+    } else {
+      importFormatPlaceholder.value = 'Paste JSON array here'
+    }
+  }
+
+  const onImportFileChange = (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result)
+        importForm.jsonData = JSON.stringify(data, null, 2)
+      } catch (err) {
+        importForm.jsonData = event.target.result
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const submitImport = async () => {
+    if (!importForm.jsonData || !importForm.jsonData.trim()) {
+      return
+    }
+    const fd = new FormData()
+    fd.append('data', importForm.jsonData)
+    if (isAdmin.value && importForm.target_user_id) {
+      fd.append('user_id', importForm.target_user_id)
+    }
+    importing.value = true
+    try {
+      const res = importForm.format === 'kingmo'
+        ? await importKingmo(fd, isAdmin.value).catch(() => false)
+        : await importAddressBook(fd, isAdmin.value).catch(() => false)
+      if (res) {
+        importing.value = false
+        showImportDialog.value = false
+        importResult.total = res.data.total || 0
+        importResult.imported = res.data.imported || 0
+        importResult.skipped = res.data.skipped || 0
+        importResult.user_id = res.data.user_id || 0
+        importResult.errors = res.data.errors || []
+        importResult.format = res.data.format || importForm.format
+        showImportResult.value = true
+        importForm.jsonData = ''
+        importForm.target_user_id = null
+        getList()
+      }
+    } catch (e) {
+      importing.value = false
+    }
+  }
 
   watch(() => listQuery.page, getList)
 

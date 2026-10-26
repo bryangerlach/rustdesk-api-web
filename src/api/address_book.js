@@ -61,3 +61,23 @@ export function batchCreateFromPeers (data) {
   })
 }
 
+export function importAddressBook (data, isAdmin = false) {
+  const url = isAdmin ? '/address_book/import_for_user' : '/address_book/import'
+  return request({
+    url,
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export function importKingmo (data, isAdmin = false) {
+  const url = isAdmin ? '/address_book/import_kingmo' : '/address_book/import_kingmo'
+  return request({
+    url,
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
