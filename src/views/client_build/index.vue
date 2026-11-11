@@ -25,7 +25,18 @@
         <el-table-column prop="target" label="Target" align="center"/>
         <el-table-column prop="version" label="Version" align="center"/>
         <el-table-column prop="job_id" label="Job ID" align="center"/>
-        <el-table-column prop="builder" label="Builder" align="center"/>
+        <el-table-column prop="builder" label="Builder" align="center">
+          <template #default="{row}">
+            <div>{{ row.builder }}</div>
+            <a v-if="row.builder === 'rdgen' && row.log_url"
+               :href="row.log_url"
+               target="_blank"
+               rel="noopener"
+               style="color: var(--el-color-primary); font-size: 12px;">
+              Build Logs
+            </a>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="Status" align="center">
           <template #default="{row}">
             <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
