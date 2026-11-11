@@ -102,6 +102,9 @@
         <el-form-item label="rdgen API Token">
           <el-input v-model="settingsForm.rdgen_api_token" />
         </el-form-item>
+        <el-form-item label="Update Public Key">
+          <el-input v-model="settingsForm.update_public_key" readonly />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showSettings=false">{{ T('Cancel') }}</el-button>
@@ -259,7 +262,7 @@
 
   const showSettings = ref(false)
   const savingSettings = ref(false)
-  const settingsForm = reactive({ api_base: '', api_token: '', rdgen_api_base: '', rdgen_api_token: '' })
+  const settingsForm = reactive({ api_base: '', api_token: '', rdgen_api_base: '', rdgen_api_token: '', update_public_key: '' })
 
   const openSettings = async () => {
     showSettings.value = true
@@ -269,6 +272,7 @@
       settingsForm.api_token = res.data.api_token || ''
       settingsForm.rdgen_api_base = res.data.rdgen_api_base || ''
       settingsForm.rdgen_api_token = res.data.rdgen_api_token || ''
+      settingsForm.update_public_key = res.data.update_public_key || ''
     }
   }
 
