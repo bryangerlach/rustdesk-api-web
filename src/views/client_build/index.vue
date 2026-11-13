@@ -24,6 +24,11 @@
         <el-table-column prop="name" label="Name" align="center"/>
         <el-table-column prop="target" label="Target" align="center"/>
         <el-table-column prop="version" label="Version" align="center"/>
+        <el-table-column label="Auto Update" align="center">
+          <template #default="{row}">
+            <el-tag :type="row.exclude_from_update ? 'info' : 'success'">{{ row.exclude_from_update ? 'No' : 'Yes' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="job_id" label="Job ID" align="center"/>
         <el-table-column prop="builder" label="Builder" align="center">
           <template #default="{row}">
@@ -88,6 +93,12 @@
             <el-option v-for="v in versionOptions" :key="v" :label="v" :value="v" />
           </el-select>
         </el-form-item>
+        <el-form-item label="Auto Update">
+          <el-checkbox v-model="createForm.exclude_from_update">Exclude from automatic updates</el-checkbox>
+          <div style="color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.4;">
+            Excluded builds are not offered to clients checking for updates.
+          </div>
+        </el-form-item>
         <el-form-item label="Name">
           <el-input v-model="createForm.name"/>
         </el-form-item>
@@ -139,7 +150,7 @@
   const multipleSelection = ref([])
   const showCreate = ref(false)
   const creating = ref(false)
-  const createForm = reactive({ builder: 'dvforge', targets: [], version: '', name: '' })
+  const createForm = reactive({ builder: 'dvforge', targets: [], version: '', name: '', exclude_from_update: false })
   const versionOptions = ref([])
   const versionsLoading = ref(false)
   const tempTarget = ref('')
@@ -264,6 +275,7 @@
     createForm.targets.forEach(t => fd.append('targets', t.value))
     fd.append('builder', createForm.builder || 'dvforge')
     fd.append('version', createForm.version || '')
+    fd.append('exclude_from_update', createForm.exclude_from_update ? 'true' : 'false')
     fd.append('name', createForm.name || selectedFile.name)
     fd.append('file', selectedFile)
     creating.value = true
@@ -273,6 +285,7 @@
       ElMessage.success(T('OperationSuccess'))
       showCreate.value = false
       selectedFile = null
+      createForm.exclude_from_update = false
       getList()
     }
   }
