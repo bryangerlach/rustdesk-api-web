@@ -31,6 +31,14 @@ export function create (data) {
   })
 }
 
+export function update (data) {
+  return request({
+    url: '/client_build/update',
+    method: 'post',
+    data,
+  })
+}
+
 export function refreshStatus (data) {
   return request({
     url: '/client_build/refresh_status',

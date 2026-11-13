@@ -18,48 +18,53 @@
     </el-card>
 
     <el-card class="list-body" shadow="hover">
-      <el-table :data="listRes.list" v-loading="listRes.loading" border @selection-change="handleSelectionChange">
+      <el-table class="client-build-table"
+                :data="listRes.list"
+                v-loading="listRes.loading"
+                border
+                @selection-change="handleSelectionChange"
+                @row-click="onRowClick">
         <el-table-column type="selection" align="center" width="50"/>
-        <el-table-column prop="id" label="ID" align="center" width="80"/>
-        <el-table-column prop="name" label="Name" align="center"/>
-        <el-table-column prop="target" label="Target" align="center"/>
-        <el-table-column prop="version" label="Version" align="center"/>
-        <el-table-column label="Auto Update" align="center">
+        <el-table-column prop="id" label="ID" align="center" width="64"/>
+        <el-table-column prop="name" label="Name" align="left" min-width="160" show-overflow-tooltip/>
+        <el-table-column prop="target" label="Target" align="center" width="160" show-overflow-tooltip/>
+        <el-table-column prop="version" label="Version" align="center" width="80"/>
+        <el-table-column label="Auto Update" align="center" width="120">
           <template #default="{row}">
-            <el-tag :type="row.exclude_from_update ? 'info' : 'success'">{{ row.exclude_from_update ? 'No' : 'Yes' }}</el-tag>
+            <el-tooltip :disabled="row.status === 'done'" content="Only completed builds can be offered as updates" placement="top">
+              <span class="auto-update-cell" @click.stop>
+                <el-switch :model-value="!row.exclude_from_update"
+                           :disabled="row.status !== 'done'"
+                           :loading="autoUpdateLoadingId === row.id"
+                           @change="(val) => toggleAutoUpdate(row, val)"/>
+                <span class="auto-update-label">{{ row.exclude_from_update ? 'No' : 'Yes' }}</span>
+              </span>
+            </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="job_id" label="Job ID" align="center"/>
-        <el-table-column prop="builder" label="Builder" align="center">
-          <template #default="{row}">
-            <div>{{ row.builder }}</div>
-            <a v-if="row.builder === 'rdgen' && row.log_url"
-               :href="row.log_url"
-               target="_blank"
-               rel="noopener"
-               style="color: var(--el-color-primary); font-size: 12px;">
-              Build Logs
-            </a>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="Status" align="center">
+        <el-table-column prop="builder" label="Builder" align="center" width="110"/>
+        <el-table-column prop="status" label="Status" align="center" width="100">
           <template #default="{row}">
             <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Files" align="center">
+        <el-table-column label="Files" align="left" min-width="400" class-name="files-cell">
           <template #default="{row}">
-            <div v-for="f in row.files" :key="f" style="margin:2px">
-              <el-button link type="primary" @click="download(row, f)">{{ f }}</el-button>
+            <div v-if="row.files && row.files.length" class="file-list">
+              <el-button v-for="f in row.files"
+                         :key="f"
+                         link
+                         type="primary"
+                         class="file-link"
+                         @click.stop="download(row, f)">{{ f }}</el-button>
             </div>
+            <span v-else class="muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column prop="error" label="Error" align="center"/>
-        <el-table-column prop="created_at" :label="T('CreatedAt')" align="center"/>
-        <el-table-column :label="T('Actions')" align="center" width="220">
+        <el-table-column :label="T('Actions')" align="center" width="170" fixed="right">
           <template #default="{row}">
-            <el-button type="primary" size="small" @click="refreshRow(row)">{{ T('Refresh') }}</el-button>
-            <el-button type="danger" size="small" @click="del(row)">{{ T('Delete') }}</el-button>
+            <el-button type="primary" size="small" @click.stop="refreshRow(row)">{{ T('Refresh') }}</el-button>
+            <el-button type="danger" size="small" @click.stop="del(row)">{{ T('Delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -112,6 +117,60 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="showDetails" title="Build Details" width="760px">
+      <el-descriptions v-if="detailRow" :column="2" border>
+        <el-descriptions-item label="ID">{{ detailRow.id }}</el-descriptions-item>
+        <el-descriptions-item label="Status">
+          <el-tag :type="statusType(detailRow.status)">{{ detailRow.status }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="Name" :span="2">{{ detailRow.name }}</el-descriptions-item>
+        <el-descriptions-item label="Target">{{ detailRow.target }}</el-descriptions-item>
+        <el-descriptions-item label="Version">{{ detailRow.version }}</el-descriptions-item>
+        <el-descriptions-item label="Builder">{{ detailRow.builder }}</el-descriptions-item>
+        <el-descriptions-item label="Auto Update">
+          <span class="auto-update-cell">
+            <el-switch :model-value="!detailRow.exclude_from_update"
+                       :disabled="detailRow.status !== 'done'"
+                       :loading="autoUpdateLoadingId === detailRow.id"
+                       @change="(val) => toggleAutoUpdate(detailRow, val)"/>
+            <span class="auto-update-label">{{ detailRow.exclude_from_update ? 'No' : 'Yes' }}</span>
+          </span>
+        </el-descriptions-item>
+        <el-descriptions-item label="Job ID" :span="2">
+          <span class="mono">{{ detailRow.job_id || '—' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="JSON File">{{ detailRow.json_file || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="User ID">{{ detailRow.user_id }}</el-descriptions-item>
+        <el-descriptions-item label="Created At">{{ detailRow.created_at }}</el-descriptions-item>
+        <el-descriptions-item label="Updated At">{{ detailRow.updated_at }}</el-descriptions-item>
+        <el-descriptions-item label="Build Logs" :span="2">
+          <a v-if="detailRow.log_url" :href="detailRow.log_url" target="_blank" rel="noopener" class="detail-link">{{ detailRow.log_url }}</a>
+          <span v-else class="muted">—</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="Status Endpoint" :span="2">
+          <span class="mono">{{ detailRow.status_url || '—' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="Files" :span="2">
+          <div v-if="detailRow.files && detailRow.files.length" class="file-list">
+            <el-button v-for="f in detailRow.files"
+                       :key="f"
+                       link
+                       type="primary"
+                       class="file-link"
+                       @click="download(detailRow, f)">{{ f }}</el-button>
+          </div>
+          <span v-else class="muted">—</span>
+        </el-descriptions-item>
+        <el-descriptions-item v-if="detailRow.error" label="Error" :span="2">
+          <span class="error-text">{{ detailRow.error }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="showDetails=false">{{ T('Cancel') }}</el-button>
+        <el-button type="primary" @click="refreshDetail" :loading="detailRefreshing">{{ T('Refresh') }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showSettings" title="Client Builder Settings" width="520px">
       <el-form :model="settingsForm" label-width="140px">
         <el-form-item label="API Base">
@@ -142,7 +201,7 @@
   import { onActivated, onMounted, onBeforeUnmount, onDeactivated, ref, reactive, watch } from 'vue'
   import { T } from '@/utils/i18n'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { list, create, refreshStatus, remove, batchDelete, downloadFile, targetOptions as fetchTargetOptions, versions as fetchVersions } from '@/api/client_build'
+  import { list, create, update as updateBuild, refreshStatus, remove, batchDelete, downloadFile, targetOptions as fetchTargetOptions, versions as fetchVersions } from '@/api/client_build'
   import { clientBuilder, clientBuilderSave } from '@/api/config'
 
   const listRes = reactive({ list: [], total: 0, loading: false })
@@ -150,6 +209,10 @@
   const multipleSelection = ref([])
   const showCreate = ref(false)
   const creating = ref(false)
+  const showDetails = ref(false)
+  const detailRow = ref(null)
+  const detailRefreshing = ref(false)
+  const autoUpdateLoadingId = ref(0)
   const createForm = reactive({ builder: 'dvforge', targets: [], version: '', name: '', exclude_from_update: false })
   const versionOptions = ref([])
   const versionsLoading = ref(false)
@@ -168,10 +231,37 @@
     if (res) {
       listRes.list = res.data.list || []
       listRes.total = res.data.total || 0
+      if (detailRow.value) {
+        detailRow.value = listRes.list.find(r => r.id === detailRow.value.id) || detailRow.value
+      }
     }
   }
 
   const handleSelectionChange = (val) => { multipleSelection.value = val }
+
+  const onRowClick = (row, column) => {
+    if (column && column.type === 'selection') return
+    detailRow.value = row
+    showDetails.value = true
+  }
+
+  const toggleAutoUpdate = async (row, enabled) => {
+    const exclude = !enabled
+    const message = exclude
+      ? 'Exclude this build from automatic updates? Clients checking for updates will fall back to the previous eligible build.'
+      : 'Include this build in automatic updates? It only becomes the latest update if there is no newer included build for its target.'
+    const cf = await ElMessageBox.confirm(message, 'Auto Update', {
+      confirmButtonText: T('Confirm'), cancelButtonText: T('Cancel'), type: 'warning',
+    }).catch(() => false)
+    if (!cf) return
+    autoUpdateLoadingId.value = row.id
+    const res = await updateBuild({ id: row.id, exclude_from_update: exclude }).catch(() => false)
+    autoUpdateLoadingId.value = 0
+    if (res) {
+      row.exclude_from_update = res.data.exclude_from_update
+      ElMessage.success(T('OperationSuccess'))
+    }
+  }
 
   const statusType = (s) => {
     if (s === 'done') return 'success'
@@ -211,6 +301,17 @@
 
   const refreshRow = async (row) => {
     const res = await refreshStatus({ id: row.id }).catch(() => false)
+    if (res) {
+      ElMessage.success(T('OperationSuccess'))
+      getList()
+    }
+  }
+
+  const refreshDetail = async () => {
+    if (!detailRow.value) return
+    detailRefreshing.value = true
+    const res = await refreshStatus({ id: detailRow.value.id }).catch(() => false)
+    detailRefreshing.value = false
     if (res) {
       ElMessage.success(T('OperationSuccess'))
       getList()
@@ -348,3 +449,48 @@
   watch(() => createForm.builder, fetchTargets)
   watch(showCreate, (val) => { if (val) { fetchTargets(); loadVersions() } })
 </script>
+
+<style scoped>
+  .client-build-table :deep(.el-table__row) {
+    cursor: pointer;
+  }
+  .client-build-table :deep(.files-cell .cell) {
+    white-space: nowrap;
+    word-break: normal;
+  }
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .file-link {
+    font-size: 12px;
+  }
+  .auto-update-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .auto-update-label {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .muted {
+    color: var(--el-text-color-secondary);
+  }
+  .detail-link {
+    color: var(--el-color-primary);
+    word-break: break-all;
+  }
+  .error-text {
+    color: var(--el-color-danger);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+</style>
