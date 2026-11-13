@@ -15,6 +15,13 @@ export function targetOptions (params) {
   })
 }
 
+export function versions () {
+  return request({
+    url: '/client_build/versions',
+    method: 'get',
+  })
+}
+
 export function create (data) {
   return request({
     url: '/client_build/create',

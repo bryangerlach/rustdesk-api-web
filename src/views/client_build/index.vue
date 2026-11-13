@@ -84,7 +84,9 @@
           </el-select>
         </el-form-item>
         <el-form-item label="Version">
-          <el-input v-model="createForm.version" placeholder="1.5.0"/>
+          <el-select v-model="createForm.version" :loading="versionsLoading" placeholder="Select version" style="width: 100%">
+            <el-option v-for="v in versionOptions" :key="v" :label="v" :value="v" />
+          </el-select>
         </el-form-item>
         <el-form-item label="Name">
           <el-input v-model="createForm.name"/>
@@ -129,7 +131,7 @@
   import { onActivated, onMounted, onBeforeUnmount, onDeactivated, ref, reactive, watch } from 'vue'
   import { T } from '@/utils/i18n'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { list, create, refreshStatus, remove, batchDelete, downloadFile, targetOptions as fetchTargetOptions } from '@/api/client_build'
+  import { list, create, refreshStatus, remove, batchDelete, downloadFile, targetOptions as fetchTargetOptions, versions as fetchVersions } from '@/api/client_build'
   import { clientBuilder, clientBuilderSave } from '@/api/config'
 
   const listRes = reactive({ list: [], total: 0, loading: false })
@@ -137,7 +139,9 @@
   const multipleSelection = ref([])
   const showCreate = ref(false)
   const creating = ref(false)
-  const createForm = reactive({ builder: 'dvforge', targets: [], version: '1.5.0', name: '' })
+  const createForm = reactive({ builder: 'dvforge', targets: [], version: '', name: '' })
+  const versionOptions = ref([])
+  const versionsLoading = ref(false)
   const tempTarget = ref('')
   const builderOptions = [
     { value: 'dvforge', label: 'DVForge' },
@@ -217,6 +221,18 @@
     createForm.targets = []
   }
 
+  const loadVersions = async () => {
+    versionsLoading.value = true
+    const res = await fetchVersions().catch(() => false)
+    versionsLoading.value = false
+    if (res) {
+      versionOptions.value = res.data.versions || []
+      createForm.version = versionOptions.value[0] || ''
+    } else {
+      versionOptions.value = []
+    }
+  }
+
   const handleTargetClose = (tag) => {
     createForm.targets = createForm.targets.filter(t => t.value !== tag.value)
   }
@@ -238,6 +254,10 @@
     }
     if (!createForm.targets || createForm.targets.length === 0) {
       ElMessage.warning('Please select at least one target')
+      return
+    }
+    if (!createForm.version) {
+      ElMessage.warning('Please select a version')
       return
     }
     const fd = new FormData()
@@ -313,5 +333,5 @@
   watch(() => listQuery.page, getList)
   watch(() => listQuery.page_size, () => { if (listQuery.page === 1) getList(); else listQuery.page = 1 })
   watch(() => createForm.builder, fetchTargets)
-  watch(showCreate, (val) => { if (val) fetchTargets() })
+  watch(showCreate, (val) => { if (val) { fetchTargets(); loadVersions() } })
 </script>
