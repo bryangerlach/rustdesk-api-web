@@ -201,7 +201,7 @@
   import { onActivated, onMounted, onBeforeUnmount, onDeactivated, ref, reactive, watch } from 'vue'
   import { T } from '@/utils/i18n'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { list, create, update as updateBuild, refreshStatus, remove, batchDelete, downloadFile, targetOptions as fetchTargetOptions, versions as fetchVersions } from '@/api/client_build'
+  import { list, create, update as updateBuild, refreshStatus, remove, batchDelete, downloadTicket, targetOptions as fetchTargetOptions, versions as fetchVersions } from '@/api/client_build'
   import { clientBuilder, clientBuilderSave } from '@/api/config'
 
   const listRes = reactive({ list: [], total: 0, loading: false })
@@ -392,17 +392,15 @@
   }
 
   const download = async (row, file) => {
-    const res = await downloadFile(row.id, file).catch(() => false)
-    if (!res) return
-    const blob = res.data instanceof Blob ? res.data : new Blob([res.data])
-    const url = window.URL.createObjectURL(blob)
+    const res = await downloadTicket({ id: row.id, file }).catch(() => false)
+    if (!res || !res.data || !res.data.url) return
+    const base = (import.meta.env.VITE_SERVER_API || '').replace(/\/$/, '')
     const a = document.createElement('a')
-    a.href = url
-    a.download = file
+    a.href = `${base}${res.data.url}`
+    a.rel = 'noopener'
     document.body.appendChild(a)
     a.click()
     a.remove()
-    window.URL.revokeObjectURL(url)
   }
 
   const showSettings = ref(false)

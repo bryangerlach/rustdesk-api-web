@@ -63,10 +63,10 @@ export function batchDelete (data) {
   })
 }
 
-export function downloadFile (id, file) {
+export function downloadTicket (data) {
   return request({
-    url: `/client_build/download/${id}/${encodeURIComponent(file)}`,
-    method: 'get',
-    responseType: 'blob',
+    url: '/client_build/download_ticket',
+    method: 'post',
+    data,
   })
 }
