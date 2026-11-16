@@ -28,7 +28,16 @@
         <el-table-column prop="id" label="ID" align="center" width="64"/>
         <el-table-column prop="name" label="Name" align="left" min-width="160" show-overflow-tooltip/>
         <el-table-column prop="target" label="Target" align="center" width="160" show-overflow-tooltip/>
-        <el-table-column prop="version" label="Version" align="center" width="80"/>
+        <el-table-column prop="version" label="Version" align="center" width="130">
+          <template #default="{row}">
+            <span class="version-cell">
+              <span>{{ row.version || '—' }}</span>
+              <el-tooltip v-if="row.is_latest_update" content="Currently served as the latest automatic update for this platform" placement="top">
+                <el-tag type="success" size="small" effect="dark">Latest</el-tag>
+              </el-tooltip>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="Auto Update" align="center" width="120">
           <template #default="{row}">
             <el-tooltip :disabled="row.status === 'done'" content="Only completed builds can be offered as updates" placement="top">
@@ -64,7 +73,11 @@
         <el-table-column :label="T('Actions')" align="center" width="170" fixed="right">
           <template #default="{row}">
             <el-button type="primary" size="small" @click.stop="refreshRow(row)">{{ T('Refresh') }}</el-button>
-            <el-button type="danger" size="small" @click.stop="del(row)">{{ T('Delete') }}</el-button>
+            <el-tooltip :disabled="!row.is_latest_update" content="The latest automatic update cannot be deleted. Exclude it from auto update first." placement="top">
+              <span class="delete-cell" @click.stop>
+                <el-button type="danger" size="small" :disabled="row.is_latest_update" @click.stop="del(row)">{{ T('Delete') }}</el-button>
+              </span>
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -125,7 +138,14 @@
         </el-descriptions-item>
         <el-descriptions-item label="Name" :span="2">{{ detailRow.name }}</el-descriptions-item>
         <el-descriptions-item label="Target">{{ detailRow.target }}</el-descriptions-item>
-        <el-descriptions-item label="Version">{{ detailRow.version }}</el-descriptions-item>
+        <el-descriptions-item label="Version">
+          <span class="version-cell">
+            <span>{{ detailRow.version || '—' }}</span>
+            <el-tooltip v-if="detailRow.is_latest_update" content="Currently served as the latest automatic update for this platform" placement="top">
+              <el-tag type="success" size="small" effect="dark">Latest</el-tag>
+            </el-tooltip>
+          </span>
+        </el-descriptions-item>
         <el-descriptions-item label="Builder">{{ detailRow.builder }}</el-descriptions-item>
         <el-descriptions-item label="Auto Update">
           <span class="auto-update-cell">
@@ -260,6 +280,7 @@
     if (res) {
       row.exclude_from_update = res.data.exclude_from_update
       ElMessage.success(T('OperationSuccess'))
+      getList()
     }
   }
 
@@ -285,6 +306,11 @@
   const toBatchDelete = async () => {
     if (!multipleSelection.value.length) {
       ElMessage.warning(T('PleaseSelectData'))
+      return
+    }
+    const blocked = multipleSelection.value.filter(r => r.is_latest_update)
+    if (blocked.length) {
+      ElMessage.warning(`The latest automatic update cannot be deleted. Exclude it first: ${blocked.map(r => r.id).join(', ')}`)
       return
     }
     const ids = multipleSelection.value.map(r => r.id)
@@ -473,6 +499,15 @@
   .auto-update-label {
     font-size: 12px;
     color: var(--el-text-color-secondary);
+  }
+  .version-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .delete-cell {
+    display: inline-flex;
   }
   .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
